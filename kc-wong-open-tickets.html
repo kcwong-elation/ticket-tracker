@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K.C. Wong – Open Ticket Tracker</title>
+<style>
+  :root {
+    --bg:#f4f5f9; --card:#fff; --border:#e4e6ef; --text:#1a1d2e; --muted:#6b7280;
+    --kerix:#1e72d1; --kerix-light:#e8f0fb;
+    --onetoone:#e07020; --onetoone-light:#fdf1e8;
+    --stale-bg:#fff3e0; --stale-text:#b83010;
+    --age-ok:#097a5e; --age-warn:#8a6200; --age-hot:#b83010;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:var(--bg); color:var(--text); font-size:13px; }
+  a { color:inherit; text-decoration:none; }
+  a:hover { text-decoration:underline; }
+
+  .header { background:#fff; border-bottom:1px solid var(--border); padding:14px 24px; display:flex; align-items:center; justify-content:space-between; }
+  .header-left { display:flex; align-items:center; gap:10px; }
+  .header-logo { width:28px; height:28px; background:linear-gradient(135deg,#1e72d1,#0fa884); border-radius:6px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; }
+  .header-title { font-size:15px; font-weight:700; }
+  .header-sub { font-size:11px; color:var(--muted); margin-top:1px; }
+  select.client-select { font-size:12px; border:1px solid var(--border); border-radius:6px; padding:5px 10px; background:#fff; cursor:pointer; }
+
+  .nav { background:#fff; border-bottom:1px solid var(--border); padding:0 24px; display:flex; gap:2px; }
+  .nav-tab { padding:10px 16px; font-size:12px; font-weight:600; color:var(--muted); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-1px; }
+  .nav-tab:hover { color:var(--text); }
+  .nav-tab.active { color:var(--text); border-bottom-color:var(--text); }
+  .nav-cnt { display:inline-block; background:var(--bg); border-radius:10px; padding:1px 7px; font-size:11px; margin-left:5px; }
+
+  .content { padding:20px 24px; max-width:1400px; }
+  .panel { display:none; }
+  .panel.active { display:block; }
+
+  .rollup-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:20px; }
+  .stat-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 18px; position:relative; overflow:hidden; }
+  .stat-card::before { content:''; position:absolute; left:0; top:0; bottom:0; width:3px; border-radius:10px 0 0 10px; }
+  .stat-card.acc-gray::before { background:#1a1d2e; }
+  .stat-card.acc-blue::before { background:var(--kerix); }
+  .stat-card.acc-orange::before { background:var(--onetoone); }
+  .stat-value { font-size:26px; font-weight:800; letter-spacing:-0.03em; line-height:1; margin-bottom:4px; }
+  .stat-label { font-size:12px; font-weight:600; }
+  .stat-sub { font-size:11px; color:var(--muted); margin-top:2px; }
+
+  .section-header { display:flex; align-items:center; gap:10px; margin:18px 0 12px; }
+  .section-title { font-size:12px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; white-space:nowrap; }
+  .section-line { flex:1; height:1px; background:var(--border); }
+  .section-count { font-size:11px; color:var(--muted); white-space:nowrap; }
+
+  .client-cards { display:grid; grid-template-columns:repeat(2,1fr); gap:12px; }
+  .client-card { background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px 16px; }
+  .client-card-name { font-size:13px; font-weight:700; margin-bottom:10px; display:flex; align-items:center; gap:7px; }
+  .client-dot { display:inline-block; width:8px; height:8px; border-radius:50%; }
+  .dot-kerix { background:var(--kerix); }
+  .dot-onetoone { background:var(--onetoone); }
+  .ccr { display:flex; justify-content:space-between; align-items:center; padding:3px 0; font-size:12px; border-bottom:1px solid var(--bg); }
+  .ccr:last-child { border-bottom:none; }
+  .lbl { color:var(--muted); }
+  .val { font-weight:600; }
+
+  .table-wrap { background:#fff; border:1px solid var(--border); border-radius:10px; overflow:hidden; }
+  .table-header { display:grid; padding:9px 14px; background:var(--bg); border-bottom:1px solid var(--border); font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em; }
+  .table-header span { cursor:pointer; user-select:none; }
+  .table-header span:hover { color:var(--text); }
+  .table-row { display:grid; padding:10px 14px; border-bottom:1px solid var(--bg); align-items:center; font-size:12px; }
+  .table-row:last-child { border-bottom:none; }
+  .table-row:hover { background:#f8f9fc; }
+  .cell-id { font-family:monospace; font-size:11px; }
+  .cell-id a { color:#1460b0; }
+  .cell-meta { color:var(--muted); font-size:11px; }
+  .stale { display:inline-block; font-size:10px; color:var(--stale-text); background:var(--stale-bg); border-radius:4px; padding:1px 5px; margin-left:6px; font-weight:600; }
+  .empty { padding:40px; text-align:center; color:var(--muted); }
+
+  .badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:4px; text-transform:uppercase; letter-spacing:.04em; }
+  .b-open    { background:#dbeafe; color:#1460b0; }
+  .b-new     { background:#dbeafe; color:#1460b0; }
+  .b-pending { background:#fef3c7; color:#92400e; }
+  .b-todo    { background:#ede9fe; color:#5b21b6; }
+  .b-done    { background:#d1fae5; color:#065f46; }
+  .b-resolved{ background:#d1fae5; color:#065f46; }
+
+  .chip { display:inline-block; font-size:10px; font-weight:700; padding:2px 7px; border-radius:12px; }
+  .chip-kerix    { background:var(--kerix-light); color:var(--kerix); }
+  .chip-onetoone { background:var(--onetoone-light); color:var(--onetoone); }
+  .src { display:inline-block; font-size:10px; font-weight:600; padding:2px 6px; border-radius:4px; }
+  .src-sf  { background:#e8f4ff; color:#1460b0; }
+  .src-lin { background:#f0edff; color:#5b21b6; }
+
+  .age { font-size:11px; font-weight:700; padding:2px 7px; border-radius:4px; text-align:center; }
+  .age-ok   { background:#d1fae5; color:var(--age-ok); }
+  .age-warn { background:#fef3c7; color:var(--age-warn); }
+  .age-hot  { background:#fee2e2; color:var(--age-hot); }
+
+  .toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:6px; margin-bottom:10px; }
+  .filter-group { display:flex; align-items:center; gap:4px; }
+  .filter-label { font-size:11px; color:var(--muted); font-weight:600; margin-right:2px; }
+  .filter-btn { font-size:11px; padding:4px 10px; border:1px solid var(--border); background:#fff; border-radius:5px; cursor:pointer; color:var(--muted); font-weight:600; }
+  .filter-btn:hover { border-color:#9ca3af; color:var(--text); }
+  .filter-btn.active { background:var(--text); color:#fff; border-color:var(--text); }
+  .toolbar-sep { width:1px; height:18px; background:var(--border); margin:0 2px; }
+  .search-box { font-size:12px; border:1px solid var(--border); border-radius:5px; padding:4px 10px; width:160px; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="header-logo">KC</div>
+    <div>
+      <div class="header-title">K.C. Wong – Open Ticket Tracker</div>
+      <div class="header-sub">Salesforce Cases + Linear Issues &nbsp;·&nbsp; KerixHealth + One to One Health &nbsp;·&nbsp; Sep 1, 2026</div>
+    </div>
+  </div>
+  <select class="client-select" id="clientSelect" onchange="switchClient(this.value)">
+    <option value="all">All Clients</option>
+    <option value="kerix">KerixHealth</option>
+    <option value="onetoone">One to One Health</option>
+  </select>
+</div>
+
+<div class="nav">
+  <div class="nav-tab active" id="nav-overview" onclick="switchNav('overview')">Overview</div>
+  <div class="nav-tab" id="nav-open" onclick="switchNav('open')">Open <span class="nav-cnt" id="open-cnt">—</span></div>
+  <div class="nav-tab" id="nav-resolved" onclick="switchNav('resolved')">Resolved <span class="nav-cnt" id="resolved-cnt">—</span></div>
+</div>
+
+<div class="content">
+
+<!-- OVERVIEW -->
+<div class="panel active" id="panel-overview">
+  <div class="rollup-grid">
+    <div class="stat-card acc-gray">
+      <div class="stat-value" style="color:#1a1d2e">18</div>
+      <div class="stat-label">Open Tickets</div>
+      <div class="stat-sub">Across both accounts</div>
+    </div>
+    <div class="stat-card acc-blue">
+      <div class="stat-value" style="color:var(--kerix)">6</div>
+      <div class="stat-label">KerixHealth</div>
+      <div class="stat-sub">6 SF · 0 Linear</div>
+    </div>
+    <div class="stat-card acc-orange">
+      <div class="stat-value" style="color:var(--onetoone)">12</div>
+      <div class="stat-label">One to One Health</div>
+      <div class="stat-sub">11 SF · 1 Linear</div>
+    </div>
+  </div>
+
+  <div class="section-header"><span class="section-title">Client Snapshot</span><div class="section-line"></div></div>
+  <div class="client-cards">
+    <div class="client-card">
+      <div class="client-card-name"><span class="client-dot dot-kerix"></span>KerixHealth</div>
+      <div class="ccr"><span class="lbl">SF Open / Pending</span><span class="val" style="color:#1460b0">6</span></div>
+      <div class="ccr"><span class="lbl">Linear Open</span><span class="val" style="color:#6255d4">0</span></div>
+      <div class="ccr"><span class="lbl">Stale (14+ days)</span><span class="val" style="color:#b83010">3</span></div>
+      <div class="ccr"><span class="lbl">Top Issues</span><span class="val">Lab orders / IR wrong state</span></div>
+    </div>
+    <div class="client-card">
+      <div class="client-card-name"><span class="client-dot dot-onetoone"></span>One to One Health</div>
+      <div class="ccr"><span class="lbl">SF Open / Pending</span><span class="val" style="color:#1460b0">11</span></div>
+      <div class="ccr"><span class="lbl">Linear Open</span><span class="val" style="color:#6255d4">1</span></div>
+      <div class="ccr"><span class="lbl">Stale (14+ days)</span><span class="val" style="color:#b83010">8</span></div>
+      <div class="ccr"><span class="lbl">Top Issues</span><span class="val">GRITS/CHIRP/IR integrations (4 open)</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- OPEN TICKETS -->
+<div class="panel" id="panel-open">
+  <div class="section-header" style="margin-top:0">
+    <span class="section-title">Open Tickets</span><div class="section-line"></div>
+    <span class="section-count" id="visible-count-open">— shown</span>
+  </div>
+  <div class="toolbar">
+    <div class="filter-group">
+      <span class="filter-label">Client:</span>
+      <button class="filter-btn active" onclick="setFilter('open','client','all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('open','client','kerix',this)"><span style="color:var(--kerix)">●</span> Kerix</button>
+      <button class="filter-btn" onclick="setFilter('open','client','onetoone',this)"><span style="color:var(--onetoone)">●</span> One to One</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <div class="filter-group">
+      <span class="filter-label">Source:</span>
+      <button class="filter-btn active" onclick="setFilter('open','source','all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('open','source','sf',this)">Salesforce</button>
+      <button class="filter-btn" onclick="setFilter('open','source','linear',this)">Linear</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <input class="search-box" id="searchBox-open" placeholder="Search…" oninput="renderTable('open')">
+  </div>
+  <div class="table-wrap">
+    <div class="table-header" style="grid-template-columns:90px 1fr 130px 80px 130px 150px 100px 52px">
+      <span onclick="toggleSort('open','id')">Case #</span>
+      <span onclick="toggleSort('open','subject')">Subject</span>
+      <span onclick="toggleSort('open','client')">Client</span>
+      <span onclick="toggleSort('open','source')">Source</span>
+      <span onclick="toggleSort('open','type')">Type</span>
+      <span onclick="toggleSort('open','owner')">Owner</span>
+      <span onclick="toggleSort('open','status')">Status</span>
+      <span onclick="toggleSort('open','age')">Age</span>
+    </div>
+    <div id="tableBody-open"></div>
+  </div>
+</div>
+
+<!-- RESOLVED -->
+<div class="panel" id="panel-resolved">
+  <div class="section-header" style="margin-top:0">
+    <span class="section-title">Resolved / Closed (Notable Since Jan 2026)</span><div class="section-line"></div>
+    <span class="section-count" id="visible-count-resolved">— shown</span>
+  </div>
+  <div class="toolbar">
+    <div class="filter-group">
+      <span class="filter-label">Client:</span>
+      <button class="filter-btn active" onclick="setFilter('resolved','client','all',this)">All</button>
+      <button class="filter-btn" onclick="setFilter('resolved','client','kerix',this)"><span style="color:var(--kerix)">●</span> Kerix</button>
+      <button class="filter-btn" onclick="setFilter('resolved','client','onetoone',this)"><span style="color:var(--onetoone)">●</span> One to One</button>
+    </div>
+    <div class="toolbar-sep"></div>
+    <input class="search-box" id="searchBox-resolved" placeholder="Search…" oninput="renderTable('resolved')">
+  </div>
+  <div class="table-wrap">
+    <div class="table-header" style="grid-template-columns:90px 1fr 130px 80px 130px 150px 100px 52px">
+      <span onclick="toggleSort('resolved','id')">Case #</span>
+      <span onclick="toggleSort('resolved','subject')">Subject</span>
+      <span onclick="toggleSort('resolved','client')">Client</span>
+      <span onclick="toggleSort('resolved','source')">Source</span>
+      <span onclick="toggleSort('resolved','type')">Type</span>
+      <span onclick="toggleSort('resolved','owner')">Owner</span>
+      <span onclick="toggleSort('resolved','status')">Status</span>
+      <span onclick="toggleSort('resolved','age')">Age</span>
+    </div>
+    <div id="tableBody-resolved"></div>
+  </div>
+</div>
+
+</div>
+
+<script>
+const ALL_TICKETS = [
+  // ─── KERIXHEALTH · SF · OPEN ──────────────────────────────────────────────
+  {id:'13772310', client:'kerix', source:'sf', subject:'Missing Service Locations', type:'Configuration', owner:'Cody Quaile', status:'new', priority:2, opened:'2026-08-31', url:'https://elation.lightning.force.com/lightning/r/Case/13772310/view'},
+  {id:'13771749', client:'kerix', source:'sf', subject:'Lab Orders Printing Wrong Addresses – Lenexa KS, Fairfax VA, Ashburn VA', type:'Break-Fix', owner:'Lubna Ismail', status:'pending', priority:2, opened:'2026-08-28', url:'https://elation.lightning.force.com/lightning/r/Case/13771749/view'},
+  {id:'13769845', client:'kerix', source:'sf', subject:'Immunization Registry Pulling Virginia Instead of KS/MO Registry', type:'Break-Fix', owner:'Lesli Balmir', status:'pending', priority:2, opened:'2026-08-24', url:'https://elation.lightning.force.com/lightning/r/Case/13769845/view'},
+  {id:'13766800', client:'kerix', source:'sf', subject:'Quest Diagnostics Not Appearing as Lab Ordering Option', type:'Lab/Integration', owner:'Michaela Iglesias', status:'open', priority:2, opened:'2026-08-13', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13766800/view'},
+  {id:'13760429', client:'kerix', source:'sf', subject:'Provider Address Showing Incorrect State (TX) in Surescripts – Dr. Nida Dillon', type:'eRx', owner:'Michaela Iglesias', status:'pending', priority:2, opened:'2026-07-27', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13760429/view'},
+  {id:'13754342', client:'kerix', source:'sf', subject:'KerixHealth Lab Integration – LabCorp (GL 11/2/26)', type:'Lab/Integration', owner:'Carly Miller', status:'pending', priority:2, opened:'2026-07-10', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13754342/view'},
+
+  // ─── ONE TO ONE HEALTH · SF · OPEN ───────────────────────────────────────
+  {id:'13772557', client:'onetoone', source:'sf', subject:'EPCS Enrollment Complete But Inactive – Dr. William Adair', type:'eRx/EPCS', owner:'Erika D.', status:'pending', priority:2, opened:'2026-09-01', url:'https://elation.lightning.force.com/lightning/r/Case/13772557/view'},
+  {id:'13772545', client:'onetoone', source:'sf', subject:'Provider Authentication – Prescribing – Debra Palka', type:'eRx/Onboarding', owner:'Yu-Fang L.', status:'new', priority:3, opened:'2026-09-01', url:'https://elation.lightning.force.com/lightning/r/Case/13772545/view'},
+  {id:'13771642', client:'onetoone', source:'sf', subject:'GRITS Immunization Registry Interface Setup – One to One Health', type:'Integrations/IR', owner:'Ashley Justice', status:'new', priority:2, opened:'2026-08-28', url:'https://elation.lightning.force.com/lightning/r/Case/13771642/view'},
+  {id:'13768213', client:'onetoone', source:'sf', subject:'E-Prescribe Issues – Teresa Campos', type:'eRx', owner:'Queue: Integrations', status:'new', priority:2, opened:'2026-08-18', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13768213/view'},
+  {id:'13752707', client:'onetoone', source:'sf', subject:'Adding Locations for Vaccine Administration ("Where Should the Record Be Sent?")', type:'Configuration', owner:'Ashley Justice', status:'new', priority:3, opened:'2026-07-06', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13752707/view'},
+  {id:'13750677', client:'onetoone', source:'sf', subject:'Gabapentin e-Prescribing – Georgia EPCS Not Blocking Controlled Substance', type:'EPCS/Compliance', owner:'Michaela Iglesias', status:'open', priority:2, opened:'2026-06-30', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13750677/view'},
+  {id:'13743060', client:'onetoone', source:'sf', subject:'Other Vendor Integration Request – Organization Setup', type:'Integrations', owner:'Ashley Justice', status:'new', priority:3, opened:'2026-06-09', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13743060/view'},
+  {id:'13736719', client:'onetoone', source:'sf', subject:'CHIRP Integration for EMR Transition (Colorado IR)', type:'Integrations/IR', owner:'Ashley Justice', status:'open', priority:2, opened:'2026-05-20', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13736719/view'},
+  {id:'13734662', client:'onetoone', source:'sf', subject:'Immunization Registry Location Not Appearing in Dropdown', type:'Integrations/IR', owner:'Ashley Justice', status:'open', priority:2, opened:'2026-05-13', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13734662/view'},
+  {id:'13713605', client:'onetoone', source:'sf', subject:'Request for HL7 Interface with GRITS (Georgia IR)', type:'Integrations/IR', owner:'Ashley Justice', status:'open', priority:2, opened:'2026-03-03', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13713605/view'},
+  {id:'13621294', client:'onetoone', source:'sf', subject:'Outside Organization Cannot See Elation Chart Data in Carequality – VCU', type:'Interoperability', owner:'Pete Rivera', status:'open', priority:3, opened:'2025-04-17', stale:true, url:'https://elation.lightning.force.com/lightning/r/Case/13621294/view'},
+
+  // ─── ONE TO ONE HEALTH · LINEAR · OPEN ───────────────────────────────────
+  {id:'EHRFBK-411', client:'onetoone', source:'linear', subject:'Roadmap Request: Epic EHR Interoperability / Integration with Carequality', type:'Interoperability', owner:'Unassigned', status:'todo', priority:0, opened:'2026-07-18', stale:true, url:'https://linear.app/elationhealth/issue/EHRFBK-411'},
+
+  // ─── KERIXHEALTH · SF · RESOLVED ─────────────────────────────────────────
+  {id:'13771424', client:'kerix', source:'sf', subject:'Note Assist Usage Cap – Dr. Cassie McKarnins (Should Be Unlimited)', type:'Break-Fix', owner:'K.C. Wong', status:'resolved', priority:2, opened:'2026-08-27', url:'https://elation.lightning.force.com/lightning/r/Case/13771424/view'},
+  {id:'13768543', client:'kerix', source:'sf', subject:'AI Assist Hitting Usage Limit – Practice Should Be on Unlimited Plan', type:'Break-Fix', owner:'Derrike Retzlaff', status:'resolved', priority:2, opened:'2026-08-19', url:'https://elation.lightning.force.com/lightning/r/Case/13768543/view'},
+  {id:'13768155', client:'kerix', source:'sf', subject:'Urgent: eRx Failures for New Provider – Pharmacy Not Displaying on Sent Prescriptions', type:'eRx', owner:'Michaela Iglesias', status:'resolved', priority:2, opened:'2026-08-18', url:'https://elation.lightning.force.com/lightning/r/Case/13768155/view'},
+  {id:'13767805', client:'kerix', source:'sf', subject:'Physician NPI Error When Ordering Labs – Urgent, Patient Waiting', type:'Break-Fix', owner:'Lubna Ismail', status:'resolved', priority:2, opened:'2026-08-17', url:'https://elation.lightning.force.com/lightning/r/Case/13767805/view'},
+  {id:'13767566', client:'kerix', source:'sf', subject:'KerixHealth Invoice 227926 – Date Overlap & Payment Info Request', type:'Finance/AR', owner:'Jennifer Lay', status:'resolved', priority:3, opened:'2026-08-17', url:'https://elation.lightning.force.com/lightning/r/Case/13767566/view'},
+  {id:'13762886', client:'kerix', source:'sf', subject:'KerixHealth eFax (New)', type:'Onboarding', owner:'TreSor Miller', status:'resolved', priority:3, opened:'2026-08-03', url:'https://elation.lightning.force.com/lightning/r/Case/13762886/view'},
+  {id:'13756228', client:'kerix', source:'sf', subject:'New Patient Online Booking Still Active for Dr. Rebekah Abbott Despite Being Disabled', type:'Configuration', owner:'Lubna Ismail', status:'resolved', priority:3, opened:'2026-07-15', url:'https://elation.lightning.force.com/lightning/r/Case/13756228/view'},
+  {id:'13755589', client:'kerix', source:'sf', subject:'Duplicate Patient Appearing in Queues', type:'Break-Fix', owner:'Michaela Iglesias', status:'resolved', priority:3, opened:'2026-07-14', url:'https://elation.lightning.force.com/lightning/r/Case/13755589/view'},
+  {id:'13754440', client:'kerix', source:'sf', subject:'KerixHealth eFax (Port)', type:'Onboarding', owner:'Jahnea Hunter', status:'resolved', priority:3, opened:'2026-07-10', url:'https://elation.lightning.force.com/lightning/r/Case/13754440/view'},
+  {id:'13754344', client:'kerix', source:'sf', subject:'KerixHealth Lab Integration – Quest Diagnostics (Hold GL 11/2/26)', type:'Lab/Integration', owner:'Carly Miller', status:'resolved', priority:3, opened:'2026-07-10', url:'https://elation.lightning.force.com/lightning/r/Case/13754344/view'},
+  {id:'13754343', client:'kerix', source:'sf', subject:'EPCS: "Invalid Signoff Credentials" Error – Dr. Cabot Sweeney', type:'eRx/EPCS', owner:'Pete Rivera', status:'resolved', priority:2, opened:'2026-07-10', url:'https://elation.lightning.force.com/lightning/r/Case/13754343/view'},
+  {id:'13751933', client:'kerix', source:'sf', subject:'DEA Expiration Date – Unable to Update in Elation', type:'eRx', owner:'Cody Quaile', status:'resolved', priority:3, opened:'2026-07-02', url:'https://elation.lightning.force.com/lightning/r/Case/13751933/view'},
+  {id:'13742177', client:'kerix', source:'sf', subject:'New Subdomain Request – KerixHealth (Surescripts Direct Messaging)', type:'Onboarding', owner:'Bot Sfllm', status:'resolved', priority:4, opened:'2026-06-05', url:'https://elation.lightning.force.com/lightning/r/Case/13742177/view'},
+  // ─── KERIXHEALTH · LINEAR · RESOLVED ─────────────────────────────────────
+  {id:'FOPE-1378', client:'kerix', source:'linear', subject:'Outbound API Webhook Overwrites Affiliate Provider in Hint on Any Patient Save', type:'API/Integration', owner:'Cody Quaile', status:'resolved', priority:0, opened:'2026-07-16', url:'https://linear.app/elationhealth/issue/FOPE-1378'},
+  {id:'TE-306',    client:'kerix', source:'linear', subject:'SWAT: RFP Sends Primary Practice Address Instead of Workspace in Surescripts XML', type:'eRx', owner:'Cody Quaile', status:'resolved', priority:2, opened:'2026-06-26', url:'https://linear.app/elationhealth/issue/TE-306'},
+
+  // ─── ONE TO ONE HEALTH · SF · RESOLVED ───────────────────────────────────
+  {id:'13763897', client:'onetoone', source:'sf', subject:'Urgent Escalation – Dina Ritter Prescriber Profile: MDToolbox Not Populating', type:'eRx/EPCS', owner:'Jui Desai', status:'resolved', priority:2, opened:'2026-08-05', url:'https://elation.lightning.force.com/lightning/r/Case/13763897/view'},
+  {id:'13763553', client:'onetoone', source:'sf', subject:'Immunization Registry Connection Failing Across All Patient Charts', type:'Integrations/IR', owner:'Cody Quaile', status:'resolved', priority:2, opened:'2026-08-04', url:'https://elation.lightning.force.com/lightning/r/Case/13763553/view'},
+  {id:'13761778', client:'onetoone', source:'sf', subject:'Accidentally Deleted Patient Chart During Merge – Jewel Gessler', type:'Break-Fix', owner:'Ashley V.', status:'resolved', priority:2, opened:'2026-07-30', url:'https://elation.lightning.force.com/lightning/r/Case/13761778/view'},
+  {id:'13761721', client:'onetoone', source:'sf', subject:'EPCS Error – Sender Does Not Meet Controlled Substance Directory Requirements – Jennifer Mulbarger', type:'eRx/EPCS', owner:'Alisha Ford', status:'resolved', priority:2, opened:'2026-07-30', url:'https://elation.lightning.force.com/lightning/r/Case/13761721/view'},
+  {id:'13759421', client:'onetoone', source:'sf', subject:'Urgent: eRx Not Active + EPCS ID Proofing KBA Error – Provider Unable to Prescribe', type:'eRx/EPCS', owner:'Jui Desai', status:'resolved', priority:2, opened:'2026-07-24', url:'https://elation.lightning.force.com/lightning/r/Case/13759421/view'},
+  {id:'13758862', client:'onetoone', source:'sf', subject:'EPCS Identity Proofing – Keomingmeuang Munnicha (One to One Health)', type:'eRx/EPCS', owner:'Michaela Iglesias', status:'resolved', priority:3, opened:'2026-07-22', url:'https://elation.lightning.force.com/lightning/r/Case/13758862/view'},
+  {id:'13757484', client:'onetoone', source:'sf', subject:'Enable Bidirectional Instance Linking – Regular and Behavioral Health – Two Users', type:'Configuration', owner:'Cody Quaile', status:'resolved', priority:3, opened:'2026-07-20', url:'https://elation.lightning.force.com/lightning/r/Case/13757484/view'},
+  {id:'13756433', client:'onetoone', source:'sf', subject:'Multiple Outbound Faxes Failing Across Different Patients and Numbers', type:'Break-Fix', owner:'Jimmie B.', status:'resolved', priority:2, opened:'2026-07-16', url:'https://elation.lightning.force.com/lightning/r/Case/13756433/view'},
+  {id:'13755773', client:'onetoone', source:'sf', subject:'Appointment Times Showing Pacific Instead of Workspace Central Time Zone', type:'Break-Fix', owner:'Cody Quaile', status:'resolved', priority:3, opened:'2026-07-14', url:'https://elation.lightning.force.com/lightning/r/Case/13755773/view'},
+  {id:'13754982', client:'onetoone', source:'sf', subject:'URGENT: EPCS Prescribing Blocked – "Code Invalid" Error Before Authentication', type:'eRx/EPCS', owner:'Pete Rivera', status:'resolved', priority:2, opened:'2026-07-13', url:'https://elation.lightning.force.com/lightning/r/Case/13754982/view'},
+  // ─── ONE TO ONE HEALTH · LINEAR · RESOLVED ───────────────────────────────
+  {id:'DATA-572', client:'onetoone', source:'linear', subject:'Appointment Status Sync Delayed from Elation to Snowflake (One to One Health)', type:'Data', owner:'Kevin Jenkins', status:'done', priority:3, opened:'2026-04-01', url:'https://linear.app/elationhealth/issue/DATA-572'},
+];
+
+const OPEN_STATUSES     = new Set(['open','new','pending','in-progress','backlog','todo']);
+const RESOLVED_STATUSES = new Set(['resolved','done','canceled','duplicate']);
+const TODAY = new Date('2026-09-01');
+const state = {
+  open:     { client:'all', source:'all', sortKey:'client', sortDir:1 },
+  resolved: { client:'all', source:'all', sortKey:'client', sortDir:1 },
+};
+
+function switchClient(val) {
+  state.open.client = val; state.resolved.client = val;
+  ['open','resolved'].forEach(p => {
+    document.querySelectorAll(`#panel-${p} .filter-group .filter-btn`).forEach(b => {
+      const m = b.getAttribute('onclick').match(/'([^']+)'/g);
+      if(m && m[1]) b.classList.toggle('active', m[1].replace(/'/g,'') === val);
+    });
+  });
+  switchNav(val !== 'all' ? 'open' : 'overview');
+  renderTable('open'); renderTable('resolved');
+}
+
+function switchNav(tab) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('nav-' + tab).classList.add('active');
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + tab).classList.add('active');
+  if(tab === 'open')     renderTable('open');
+  if(tab === 'resolved') renderTable('resolved');
+}
+
+function setFilter(panel, key, val, btn) {
+  state[panel][key] = val;
+  btn.closest('.filter-group').querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if(key === 'client') { document.getElementById('clientSelect').value = val; state[panel==='open'?'resolved':'open'].client = val; }
+  renderTable(panel);
+}
+
+function toggleSort(panel, key) {
+  const s = state[panel];
+  if(s.sortKey === key) s.sortDir *= -1; else { s.sortKey = key; s.sortDir = 1; }
+  renderTable(panel);
+}
+
+const clientNames = { kerix:'KerixHealth', onetoone:'One to One Health' };
+
+function caseAge(opened) { return opened ? Math.round((TODAY - new Date(opened)) / 86400000) : 0; }
+function statusOrder(s) { return {new:0,open:1,pending:2,'in-progress':3,backlog:4,todo:5,done:6,resolved:7}[s] ?? 8; }
+
+function statusBadge(s) {
+  const m = {new:'b-new',open:'b-open',pending:'b-pending',todo:'b-todo',done:'b-done',resolved:'b-resolved',canceled:'b-resolved',duplicate:'b-resolved'};
+  const lbl = {new:'New',open:'Open',pending:'Pending',todo:'To Do',done:'Done',resolved:'Resolved',canceled:'Canceled',duplicate:'Duplicate'};
+  return `<span class="badge ${m[s]||'b-open'}">${lbl[s]||s}</span>`;
+}
+
+function ageBadge(opened) {
+  const d = caseAge(opened);
+  return `<div class="age ${d>=60?'age-hot':d>=30?'age-warn':'age-ok'}">${d}d</div>`;
+}
+
+function renderTable(panel) {
+  const s = state[panel], isOpen = panel === 'open';
+  const base = isOpen ? OPEN_STATUSES : RESOLVED_STATUSES;
+  const search = (document.getElementById(`searchBox-${panel}`).value || '').toLowerCase();
+
+  let data = ALL_TICKETS.filter(t => {
+    if(!base.has(t.status)) return false;
+    if(s.client !== 'all' && t.client !== s.client) return false;
+    if(s.source !== 'all' && t.source !== s.source) return false;
+    if(search && ![t.id,t.subject,clientNames[t.client]||'',t.owner,t.type].some(v => v.toLowerCase().includes(search))) return false;
+    return true;
+  });
+
+  data.sort((a, b) => {
+    const k = s.sortKey;
+    if(k === 'status') return (statusOrder(a.status) - statusOrder(b.status)) * s.sortDir;
+    if(k === 'age')    return (caseAge(a.opened) - caseAge(b.opened)) * s.sortDir;
+    const va = k === 'client' ? clientNames[a.client] : (a[k]||'');
+    const vb = k === 'client' ? clientNames[b.client] : (b[k]||'');
+    return String(va).localeCompare(String(vb)) * s.sortDir;
+  });
+
+  document.getElementById(`visible-count-${panel}`).textContent = data.length + ' shown';
+  document.getElementById(`${panel}-cnt`).textContent = data.length;
+
+  const body = document.getElementById(`tableBody-${panel}`);
+  if(!data.length) { body.innerHTML = '<div class="empty">No tickets match the current filters.</div>'; return; }
+
+  const cols = '90px 1fr 130px 80px 130px 150px 100px 52px';
+  body.innerHTML = data.map(t => {
+    const staleTag = t.stale ? '<span class="stale">⚠ Stale</span>' : '';
+    const srcChip  = `<span class="src src-${t.source}">${t.source==='sf'?'Salesforce':'Linear'}</span>`;
+    const cliChip  = `<span class="chip chip-${t.client}">${clientNames[t.client]}</span>`;
+    const idCell   = t.url ? `<div class="cell-id"><a href="${t.url}" target="_blank">${t.id}</a></div>` : `<div class="cell-id">${t.id}</div>`;
+    const subjCell = t.url ? `<div><a href="${t.url}" target="_blank">${t.subject}</a>${staleTag}</div>` : `<div>${t.subject}${staleTag}</div>`;
+    return `<div class="table-row" style="grid-template-columns:${cols}">
+      ${idCell}${subjCell}
+      <div>${cliChip}</div><div>${srcChip}</div>
+      <div class="cell-meta">${t.type}</div>
+      <div class="cell-meta">${t.owner}</div>
+      <div>${statusBadge(t.status)}</div>
+      ${ageBadge(t.opened)}
+    </div>`;
+  }).join('');
+}
+
+(function init() {
+  const o = ALL_TICKETS.filter(t => OPEN_STATUSES.has(t.status)).length;
+  const r = ALL_TICKETS.filter(t => RESOLVED_STATUSES.has(t.status)).length;
+  document.getElementById('open-cnt').textContent = o;
+  document.getElementById('resolved-cnt').textContent = r;
+  document.getElementById('visible-count-open').textContent = o + ' shown';
+  document.getElementById('visible-count-resolved').textContent = r + ' shown';
+})();
+</script>
+</body>
+</html>
